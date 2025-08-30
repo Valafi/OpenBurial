@@ -40,7 +40,7 @@ namespace OpenBurial
             System.Random prng = new System.Random(seed);
 
             DesertRockSpawner[] desertRockSpawners = Object.FindObjectsByType<DesertRockSpawner>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var desertRockSpawner in desertRockSpawners)
+            foreach (DesertRockSpawner desertRockSpawner in desertRockSpawners)
             {
                 GetRefsMethod.Invoke(desertRockSpawner, null);
                 Transform enterences = (Transform)enterencesField.GetValue(desertRockSpawner);
