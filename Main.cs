@@ -1,6 +1,9 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -8,15 +11,27 @@ using UnityEngine.SceneManagement;
 
 namespace OpenBurial
 {
-    [BepInPlugin("valafi.openburial", "Open Burial", "1.0.0")]
+    public enum EDisableMazeRocks
+    {
+        Never,
+        [Description("When Tomb Forced Open")]
+        WhenForcedOpen,
+        Always
+    }
+
+    [BepInPlugin("valafi.openburial", "Open Burial", "1.1.0")]
     public class OpenBurialPlugin : BaseUnityPlugin
     {
         public static ManualLogSource logSource;
+
+        public static ConfigEntry<EDisableMazeRocks> disableMazeRocks;
 
         private void Awake()
         {
             logSource = Logger;
             logSource.LogInfo($"Open Burial is loaded!");
+
+            disableMazeRocks = Config.Bind("Tomb Maze Rocks", "DisableMazeRocks", EDisableMazeRocks.WhenForcedOpen, "Maze rocks can totally block the maze tunnels! This determines when to disable them.");
 
             Harmony harmony = new Harmony("valafi.openburial");
             harmony.PatchAll();
@@ -46,6 +61,7 @@ namespace OpenBurial
                 Transform enterences = (Transform)enterencesField.GetValue(desertRockSpawner);
                 Transform inside = (Transform)insideField.GetValue(desertRockSpawner);
 
+                // Determine if there is an entrance
                 bool hasEntrance = false;
                 foreach (Transform entranceContainer in enterences)
                 {
@@ -79,6 +95,30 @@ namespace OpenBurial
                     }
                     if (hasEntrance) break;
                 }
+
+                // Disable maze rocks if configured
+                if (OpenBurialPlugin.disableMazeRocks.Value == EDisableMazeRocks.Always || OpenBurialPlugin.disableMazeRocks.Value == EDisableMazeRocks.WhenForcedOpen && !hasEntrance)
+                {
+                    HashSet<string> rockContainerNames = new HashSet<string> { "rocks", "floor", "roof" };
+
+                    foreach (Transform templeChild in desertRockSpawner.gameObject.transform)
+                    {
+                        if (templeChild.name.ToLower() != "inside") continue;
+
+                        foreach (Transform insideChild in templeChild)
+                        {
+                            if (insideChild.name.ToLower() != "maze") continue;
+
+                            foreach (Transform mazeChild in insideChild)
+                            {
+                                if (!rockContainerNames.Contains(mazeChild.name.ToLower())) continue;
+                                mazeChild.gameObject.SetActive(false);
+                            }
+                        }
+                    }
+                }
+
+                // Force an entrance if there wasn't one
                 if (hasEntrance == true) continue;
 
                 Transform targetEntranceContainer = enterences.GetChild(prng.Next(0, enterences.childCount));
